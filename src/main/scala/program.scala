@@ -3,22 +3,7 @@ package program
 import scala.util.{ Random, Success, Try }
 
 
-/**
-  * This is an exercise to explore advantages of moving from imperative design to FP design
-  *
-  * We are going to define program example which is going to take several arguments pased through command line
-  * and evaluate each command line in order to execute diferent branch of the program.
-  *
-  * Story 1: As an user i want to get recommendations from an specific algorith, but if there are no recommendations for this algorith
-  * or i forgot to specify what algorithm should be use i would like to have default recommendations from the best algorithm the system has.
-  *
-  * Story 2: As an user i want to get a message if recommendation's algorithm i requested is wrong.
-  *
-  * Story 3: As an user i want to be able to be retrieve with a limited number of recommendations
-  *
-  */
-object AppImperative {
-
+object DataSource {
   case class UserId(userId: Int) extends AnyVal
   case class Rec(recId: String, score: Float)
   case class UserRec(userId: UserId, recs: List[Rec])
@@ -51,71 +36,76 @@ object AppImperative {
 
   val algoDefault = "algo1"
 
-  def program(args: Array[String]): Unit = {
-    if(args.length < 1){
-      println("At least userId must be provided")
-      sys.exit(1)
-    }
+  val limitDefault = 10
 
-    val userIdArg = args(0)
-    var recommenderId = algoDefault
-    if(args.length > 1){
-      recommenderId = args(1)
-    }
-    var limitArg = ""
-    if(args.length > 2){
-      limitArg = args(2)
-    }
+}
 
-    var userId: Int = -1 
-    var limit: Int = 10
 
-    if(userIdArg != null && userIdArg.nonEmpty){
-      Try(userIdArg.toInt) match {
-        case Success(number) => userId = number
-        case _ => {
-          println("UserId must be an Int value")
+/**
+  * This is an exercise to explore advantages of moving from imperative design to FP design
+  *
+  * We are going to define program example which is going to take several arguments pased through command line
+  * and evaluate each command line in order to execute diferent branch of the program.
+  *
+  * Story 1: As an user i want to get recommendations from an specific algorith, but if there are no recommendations for this algorith
+  * or i forgot to specify what algorithm should be use i would like to have default recommendations from the best algorithm the system has.
+  *
+  * Story 2: As an user i want to get a message if recommendation's algorithm i requested is wrong.
+  *
+  * Story 3: As an user i want to be able to be retrieve with a limited number of recommendations
+  *
+  */
+object AppImperative {
+
+  import DataSource._
+
+
+  def program(userId: Option[Int],
+              recommenderId: Option[String] = None,
+              limit: Option[Int] = None): Unit = {
+
+
+    userId match {
+      case Some(user) => {
+        if (users.exists(_.userId == user)) {
+          var algoId: String = algoDefault
+          recommenderId match {
+            case Some(recId) => {
+              if (recId != null && recId.nonEmpty) {
+                if (algorithms.keys.exists(_ == recId)) {
+                  algoId = recId
+                }
+              }
+            }
+            case None => ()
+          }
+          var result = algorithms.get(algoId).get(user)
+          if (result.recs.isEmpty) {
+            result = algorithms.get(algoDefault).get(user)
+          }
+          if (result.recs.isEmpty) {
+            println(s"No recommendations found for userId $userId")
+          } else {
+            val amount = limit match {
+              case Some(l) => l
+              case None => limitDefault
+            }
+            val filteredResult = result.copy(recs = recs.slice(0, amount).toList)
+            println(s"\nRecommnedations for userId $user...")
+            println(s"Algorithm $algoId")
+            println(s"Recs: ${filteredResult.recs}")
+          }
+          sys.exit(0)
+        } else {
+          println(s"No user found with userId $userId")
           sys.exit(1)
         }
-      }
-    }else{
-      println("UserId must be provided")
-      sys.exit(1)
-    }
 
-    if(limitArg != null && limitArg.nonEmpty) {
-      Try(limitArg.toInt) match {
-        case Success(number) => limit = number
-        case _ => {
-          println("Limit must be an Int value")
-          sys.exit(1)
-        }
       }
-    }
-
-    if(users.exists(_.userId == userId)){
-      var algoId: String = algoDefault
-      if(recommenderId != null && recommenderId.nonEmpty){
-        if(algorithms.keys.exists(_ == recommenderId)){
-          algoId = recommenderId
-        }
+      case None => {
+        println("UserId must be provided")
+        sys.exit(1)
       }
-      var result = algorithms.get(algoId).get(userId)
-      if(result.recs.isEmpty){
-        result = algorithms.get(algoDefault).get(userId)
-      }
-      if(result.recs.isEmpty){
-        println(s"No recommendations found for userId $userId")
-      }else{
-        val filteredResult = result.copy(recs = recs.slice(0, limit).toList)
-        println(s"\nRecommnedations for userId $userId...")
-        println(s"Algorithm $algoId")
-        println(s"Recs: ${filteredResult.recs}")
-      }
-      sys.exit(0)
-    }else{
-      println(s"No user found with userId $userId")
-      sys.exit(1)
     }
 
   }
@@ -125,7 +115,7 @@ object AppImperative {
 object ToScalaFP extends App {
   import AppImperative._
 
-  program(args)
+  program(Some(1), Some("algo2"), Some(5))
 }
 
 
