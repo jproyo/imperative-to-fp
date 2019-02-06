@@ -1,6 +1,6 @@
 package program
 
-import scala.util.{ Random, Success, Try }
+import scala.util.Random
 
 object DataSource {
   case class UserId(userId: Int) extends AnyVal
@@ -35,7 +35,7 @@ object DataSource {
     "algo2" -> algorithm2 _
   )
 
-  val algoDefault = "algo1"
+  val algoDefault = Some("algo1")
 
   val limitDefault = 10
 
@@ -74,17 +74,18 @@ object AppImperative {
     val result = for {
       userParam    <- userId
       userData     <- users.find(_.userId == userParam)
-      recId        <- recommenderId.orElse(Some(algoDefault))
+      recorDef     <- recommenderId.orElse(algoDefault)
+      recId        <- algorithms.keys.find(_ == recorDef).orElse(algoDefault)
       limit        <- limit.orElse(Some(limitDefault))
       algorithm    <- algorithms.get(recId)
       recs         <- algorithm(userData.userId)
       filteredRecs  = recs.filter(limit)
-    } yield filteredRecs
+    } yield (recId, filteredRecs)
 
     result.map { recs =>
-      println(s"\nRecommnedations for userId ${recs.userId}....")
-      println(s"Algorithm $recommenderId")
-      println(s"Recs: ${recs.recs}")
+      println(s"\nRecommnedations for userId ${recs._2.userId}....")
+      println(s"Algorithm ${recs._1}")
+      println(s"Recs: ${recs._2.recs}")
     }.getOrElse{
       println(s"No recommendations found for user $userId")
     }
