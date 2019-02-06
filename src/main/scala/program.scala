@@ -13,20 +13,22 @@ object DataSource {
 
   lazy val recommendations = users.map {
     user => {
-      if(user.userId % 2 == 0) UserRec(user, List.empty)
-      else UserRec(user, recs.toList)
+      if(user.userId % 2 == 0) {
+        UserRec(user, List.empty)
+      } else {
+        UserRec(user, recs.toList)
+      }
     }
   }
 
 
-  def algorithm1(userId: Int): UserRec =
-    recommendations.find(u => u.userId.userId == userId).get
+  def algorithm1(userId: Int): Option[UserRec] =
+    recommendations.find(u => u.userId.userId == userId)
 
-  def algorithm2(userId: Int): UserRec =
+  def algorithm2(userId: Int): Option[UserRec] =
     recommendations
       .find(u => u.userId.userId == userId)
-      .get
-      .copy(recs = recs.filter(r => r.recId > "h").toList)
+      .map(_.copy(recs = recs.filter(r => r.recId > "h").toList))
 
   lazy val algorithms = Map (
     "algo1" -> algorithm1 _,
@@ -59,60 +61,41 @@ object AppImperative {
   import DataSource._
 
 
+  implicit class FilterRecs(recs: UserRec){
+    def filter(limit: Int): UserRec =
+      recs.copy(recs = recs.recs.slice(0, limit))
+  }
+
   def program(userId: Option[Int],
               recommenderId: Option[String] = None,
               limit: Option[Int] = None): Unit = {
 
 
-    userId match {
-      case Some(user) => {
-        if (users.exists(_.userId == user)) {
-          var algoId: String = algoDefault
-          recommenderId match {
-            case Some(recId) => {
-              if (recId != null && recId.nonEmpty) {
-                if (algorithms.keys.exists(_ == recId)) {
-                  algoId = recId
-                }
-              }
-            }
-            case None => ()
-          }
-          var result = algorithms.get(algoId).get(user)
-          if (result.recs.isEmpty) {
-            result = algorithms.get(algoDefault).get(user)
-          }
-          if (result.recs.isEmpty) {
-            println(s"No recommendations found for userId $userId")
-          } else {
-            val amount = limit match {
-              case Some(l) => l
-              case None => limitDefault
-            }
-            val filteredResult = result.copy(recs = recs.slice(0, amount).toList)
-            println(s"\nRecommnedations for userId $user...")
-            println(s"Algorithm $algoId")
-            println(s"Recs: ${filteredResult.recs}")
-          }
-          sys.exit(0)
-        } else {
-          println(s"No user found with userId $userId")
-          sys.exit(1)
-        }
+    val result = for {
+      userParam    <- userId
+      userData     <- users.find(_.userId == userParam)
+      recId        <- recommenderId.orElse(Some(algoDefault))
+      limit        <- limit.orElse(Some(limitDefault))
+      algorithm    <- algorithms.get(recId)
+      recs         <- algorithm(userData.userId)
+      filteredRecs  = recs.filter(limit)
+    } yield filteredRecs
 
-      }
-      case None => {
-        println("UserId must be provided")
-        sys.exit(1)
-      }
+    result.map { recs =>
+      println(s"\nRecommnedations for userId ${recs.userId}....")
+      println(s"Algorithm $recommenderId")
+      println(s"Recs: ${recs.recs}")
+    }.getOrElse{
+      println(s"No recommendations found for user $userId")
     }
+
   }
 }
 
 object ToScalaFP extends App {
   import AppImperative._
 
-  program(Some(1), Some("algo2"), Some(5))
+  program(Some(2), Some("algo5"), Some(5))
 }
 
 
