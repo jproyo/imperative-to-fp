@@ -35,6 +35,8 @@ object DataSource {
 
   val algoDefault = "algo1"
 
+  val limitDefault = 10
+
 }
 
 
@@ -56,112 +58,61 @@ object AppImperative {
 
   import DataSource._
 
-  def getCommandLineArgs(args: Array[String]): (String, String, String) = {
 
-    if (args.length < 1) {
-      println("At least userId must be provided")
-      sys.exit(1)
-    }
-
-    val userIdArg = args(0)
-    var recommenderId = algoDefault
-    if (args.length > 1) {
-      recommenderId = args(1)
-    }
-    var limitArg = ""
-    if (args.length > 2) {
-      limitArg = args(2)
-    }
-    (userIdArg, recommenderId, limitArg)
-  }
+  def program(userId: Option[Int],
+              recommenderId: Option[String] = None,
+              limit: Option[Int] = None): Unit = {
 
 
-  def convertArgs(userIdArg: String, limitArg: String): (Int, Int) = {
-    var userId: Int = -1
-    var limit: Int = 10
-
-    if (userIdArg != null && userIdArg.nonEmpty) {
-      Try(userIdArg.toInt) match {
-        case Success(number) => userId = number
-        case _ => {
-          println("UserId must be an Int value")
+    userId match {
+      case Some(user) => {
+        if (users.exists(_.userId == user)) {
+          var algoId: String = algoDefault
+          recommenderId match {
+            case Some(recId) => {
+              if (recId != null && recId.nonEmpty) {
+                if (algorithms.keys.exists(_ == recId)) {
+                  algoId = recId
+                }
+              }
+            }
+            case None => ()
+          }
+          var result = algorithms.get(algoId).get(user)
+          if (result.recs.isEmpty) {
+            result = algorithms.get(algoDefault).get(user)
+          }
+          if (result.recs.isEmpty) {
+            println(s"No recommendations found for userId $userId")
+          } else {
+            val amount = limit match {
+              case Some(l) => l
+              case None => limitDefault
+            }
+            val filteredResult = result.copy(recs = recs.slice(0, amount).toList)
+            println(s"\nRecommnedations for userId $user...")
+            println(s"Algorithm $algoId")
+            println(s"Recs: ${filteredResult.recs}")
+          }
+          sys.exit(0)
+        } else {
+          println(s"No user found with userId $userId")
           sys.exit(1)
         }
-      }
-    } else {
-      println("UserId must be provided")
-      sys.exit(1)
-    }
 
-    if (limitArg != null && limitArg.nonEmpty) {
-      Try(limitArg.toInt) match {
-        case Success(number) => limit = number
-        case _ => {
-          println("Limit must be an Int value")
-          sys.exit(1)
-        }
+      }
+      case None => {
+        println("UserId must be provided")
+        sys.exit(1)
       }
     }
-    (userId, limit)
-  }
-
-  private def getRecommendations(request: CreateRequest): Unit = {
-    val userId = request.userId
-    val recommenderId = request.recommenderId
-    val limit = request.limit
-    if (users.exists(_.userId == userId)) {
-      var algoId: String = algoDefault
-      if (recommenderId != null && recommenderId.nonEmpty) {
-        if (algorithms.keys.exists(_ == recommenderId)) {
-          algoId = recommenderId
-        }
-      }
-      var result = algorithms.get(algoId).get(userId)
-      if (result.recs.isEmpty) {
-        result = algorithms.get(algoDefault).get(userId)
-      }
-      if (result.recs.isEmpty) {
-        println(s"No recommendations found for userId $userId")
-      } else {
-        val filteredResult = result.copy(recs = recs.slice(0, limit).toList)
-        println(s"\nRecommnedations for userId $userId...")
-        println(s"Algorithm $algoId")
-        println(s"Recs: ${filteredResult.recs}")
-      }
-      sys.exit(0)
-    } else {
-      println(s"No user found with userId $userId")
-      sys.exit(1)
-    }
-  }
-
-
-  def program(args: Array[String]): Unit = {
-
-    val request = createRequest(args)
-
-    getRecommendations(request)
-
-  }
-
-  case class CreateRequest(recommenderId: String, userId: Int, limit: Int)
-
-  private def createRequest(args: Array[String]): CreateRequest = {
-    val getCommandLineArgsResult: (String, String, String) = getCommandLineArgs(args)
-    val userIdArg: String = getCommandLineArgsResult._1
-    var recommenderId: String = getCommandLineArgsResult._2
-    var limitArg: String = getCommandLineArgsResult._3
-
-    var (userId: Int, limit: Int) = convertArgs(userIdArg, limitArg)
-    CreateRequest(recommenderId, userId, limit)
   }
 }
-
 
 object ToScalaFP extends App {
   import AppImperative._
 
-  program(args)
+  program(Some(1), Some("algo2"), Some(5))
 }
 
 
