@@ -1,8 +1,7 @@
 package program
 
-import program.AppImperative.RecsEither
-
 import scala.util.Random
+import interpreter.option._
 
 object DataSource {
 
@@ -63,30 +62,9 @@ object DataSource {
 
 }
 
-
-/**
-  * This is an exercise to explore advantages of moving from imperative design to FP design
-  *
-  * We are going to define program example which is going to take several arguments pased through command line
-  * and evaluate each command line in order to execute diferent branch of the program.
-  *
-  * Story 1: As an user i want to get recommendations from an specific algorith, but if there are no recommendations for this algorith
-  * or i forgot to specify what algorithm should be use i would like to have default recommendations from the best algorithm the system has.
-  *
-  * Story 2: As an user i want to get a message if recommendation's algorithm i requested is wrong.
-  *
-  * Story 3: As an user i want to be able to be retrieve with a limited number of recommendations
-  *
-  */
-object AppImperative {
+object algebras {
 
   import DataSource._
-
-
-  implicit class FilterRecs(recs: UserRec){
-    def filter(limit: Int): UserRec =
-      recs.copy(recs = recs.recs.slice(0, limit))
-  }
 
   trait Program[F[_]] {
 
@@ -137,16 +115,24 @@ object AppImperative {
   def execute[F[_]: AlgorithmRepo](algorithm: Algorithm, userId: UserId): F[UserRec] = AlgorithmRepo[F].execute(algorithm, userId)
 
 
-  object RecsOption {
 
-    implicit val program = new Program[Option] {
+}
+
+object interpreter {
+
+  import DataSource._
+  import algebras._
+
+  object option {
+
+    implicit val program: Program[Option] = new Program[Option] {
       override def chain[A, B](fa: Option[A], afb: A => Option[B]): Option[B] = fa.flatMap(afb)
 
       override def map[A, B](fa: Option[A], ab: A => B): Option[B] = fa.map(ab)
 
     }
 
-    implicit val userRepo = new UserRepo[Option] {
+    implicit val userRepo: UserRepo[Option] = new UserRepo[Option] {
       override def getUser(userId: Option[Int]): Option[UserId] = {
         for {
           userParam <- userId
@@ -155,7 +141,7 @@ object AppImperative {
       }
     }
 
-    implicit val algorithmRepo = new AlgorithmRepo[Option] {
+    implicit val algorithmRepo: AlgorithmRepo[Option] = new AlgorithmRepo[Option] {
       override def getAlgorithm(recommenderId: Option[String]): Option[(String, Algorithm)] = {
         (for {
           recorDef  <- recommenderId.orElse(algoDefault)
@@ -168,14 +154,14 @@ object AppImperative {
 
     }
 
-    implicit val limiter = new Limiter[Option] {
+    implicit val limiter: Limiter[Option] = new Limiter[Option] {
       override def limit(limit: Option[Int]): Option[Int] = limit.orElse(Some(limitDefault))
     }
   }
 
-  object RecsEither {
+  object either {
 
-    implicit val program = new Program[Either[AppError, ?]] {
+    implicit val program: Program[Either[AppError, ?]] = new Program[Either[AppError, ?]] {
       override def chain[A, B](fa: Either[AppError, A], afb: A => Either[AppError, B]): Either[AppError, B] =
         fa.flatMap(afb)
 
@@ -183,7 +169,7 @@ object AppImperative {
 
     }
 
-    implicit val userRepo = new UserRepo[Either[AppError, ?]] {
+    implicit val userRepo: UserRepo[Either[AppError, ?]] = new UserRepo[Either[AppError, ?]] {
       override def getUser(userId: Option[Int]): Either[AppError, UserId] = {
         for {
           userParam <- userId.toRight(UserNotProvided)
@@ -192,7 +178,7 @@ object AppImperative {
       }
     }
 
-    implicit val algorithmRepo = new AlgorithmRepo[Either[AppError, ?]] {
+    implicit val algorithmRepo: AlgorithmRepo[Either[AppError, ?]] = new AlgorithmRepo[Either[AppError, ?]] {
       override def getAlgorithm(recommenderId: Option[String]): Either[AppError, (String, Algorithm)] = {
         (for {
           recorDef  <- recommenderId.orElse(algoDefault)
@@ -205,15 +191,59 @@ object AppImperative {
         algo.run(userId).toRight(RecommendationsNotFound(userId, algo.name))
     }
 
-    implicit val limiter = new Limiter[Either[AppError, ?]] {
+    implicit val limiter: Limiter[Either[AppError, ?]] = new Limiter[Either[AppError, ?]] {
       override def limit(limit: Option[Int]): Either[AppError, Int] =
         limit.orElse(Some(limitDefault)).toRight(UnknownError)
     }
   }
 
-  private def getRecommendations[F[_]: UserRepo: AlgorithmRepo: Limiter: Program](userId: Option[Int],
-                                 recommenderId: Option[String],
-                                 limit: Option[Int]): F[(String, UserRec)] = {
+
+}
+
+
+/**
+  * This is an exercise to explore advantages of moving from imperative design to FP design
+  *
+  * We are going to define program example which is going to take several arguments pased through command line
+  * and evaluate each command line in order to execute diferent branch of the program.
+  *
+  * Story 1: As an user i want to get recommendations from an specific algorith, but if there are no recommendations for this algorith
+  * or i forgot to specify what algorithm should be use i would like to have default recommendations from the best algorithm the system has.
+  *
+  * Story 2: As an user i want to get a message if recommendation's algorithm i requested is wrong.
+  *
+  * Story 3: As an user i want to be able to be retrieve with a limited number of recommendations
+  *
+  */
+object AppImperative {
+
+  import DataSource._
+  import algebras._
+
+
+  implicit class FilterRecs(recs: UserRec){
+    def filter(limit: Int): UserRec =
+      recs.copy(recs = recs.recs.slice(0, limit))
+  }
+
+
+
+  def program(userId: Option[Int],
+              recommenderId: Option[String] = None,
+              limit: Option[Int] = None): Unit = {
+
+
+    val result = getRecommendations[Option](userId, recommenderId, limit)
+
+//    printResultEither(userId, result)
+
+    printResultOpt(userId, result)
+
+  }
+
+  def getRecommendations[F[_]: UserRepo: AlgorithmRepo: Limiter: Program](userId: Option[Int],
+                                                                          recommenderId: Option[String],
+                                                                          limit: Option[Int]): F[(String, UserRec)] = {
     for {
       userData            <- getUser(userId)
       (recId, algorithm)  <- getAlgorithm(recommenderId)
@@ -221,28 +251,6 @@ object AppImperative {
       limit               <- limiter(limit)
       filteredRecs         = recs.filter(limit)
     } yield (recId, filteredRecs)
-  }
-
-  def program(userId: Option[Int],
-              recommenderId: Option[String] = None,
-              limit: Option[Int] = None): Unit = {
-
-//    implicit val user =  RecsOption.userRepo
-//    implicit val algo = RecsOption.algorithmRepo
-//    implicit val limiter = RecsOption.limiter
-//    implicit val program = RecsOption.program
-
-    implicit val user =  RecsEither.userRepo
-    implicit val algo = RecsEither.algorithmRepo
-    implicit val limiter = RecsEither.limiter
-    implicit val program = RecsEither.program
-
-    val result = getRecommendations(userId, recommenderId, limit)
-
-    printResultEither(userId, result)
-
-//    printResultOpt(userId, result)
-
   }
 
   private def printResultEither(userId: Option[Int], result: Either[AppError, (String, UserRec)]): Unit = {
