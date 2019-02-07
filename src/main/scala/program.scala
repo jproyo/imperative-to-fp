@@ -71,6 +71,8 @@ object algebras {
 
     def map[A, B](fa: F[A], ab: A => B): F[B]
 
+    def fold[A, B, C](fa: F[A], first: B => C, second: A => C): C
+
   }
   object Program {
     def apply[F[_]](implicit F: Program[F]): Program[F] = F
@@ -78,6 +80,7 @@ object algebras {
   implicit class ProgramSyntax[F[_], A](fa: F[A]) {
     def map[B](f: A => B)(implicit F: Program[F]): F[B] = F.map(fa, f)
     def flatMap[B](afb: A => F[B])(implicit F: Program[F]): F[B] = F.chain(fa, afb)
+    def fold[B, C](first: B => C, second: A => C)(implicit F: Program[F]): C = F.fold(fa, first, second)
   }
 
   trait UserRepo[F[_]] {
@@ -128,6 +131,11 @@ object interpreter {
 
     override def map[A, B](fa: Option[A], ab: A => B): Option[B] = fa.map(ab)
 
+    override def fold[A, B, C](fa: Option[A], first: B => C, second: A => C): C = fa match {
+      case Some(x) => second(x)
+      case None => first(UnknownError.asInstanceOf[B])
+    }
+
   }
 
   implicit object UserRepoOption extends UserRepo[Option] {
@@ -162,6 +170,11 @@ object interpreter {
       fa.flatMap(afb)
 
     override def map[A, B](fa: Either[AppError, A], ab: A => B): Either[AppError, B] = fa.map(ab)
+
+    override def fold[A, B, C](fa: Either[AppError, A], first: B => C, second: A => C): C = fa match {
+      case Left(value) => first(value.asInstanceOf[B])
+      case Right(value) => second(value)
+    }
 
   }
 
@@ -230,12 +243,13 @@ object AppImperative {
 
     import interpreter._
 
-    val result = getRecommendations[Either[AppError, ?]](userId, recommenderId, limit)
+//    val result = getRecommendations[Either[AppError, ?]](userId, recommenderId, limit)
+//
+//    printResult[Either[AppError, ?]](userId, result)
 
-    printResultEither(userId, result)
+      val result = getRecommendations[Option](userId, recommenderId, limit)
 
-//    printResultOpt(userId, result)
-
+      printResult[Option](userId, result)
   }
 
   def getRecommendations[F[_]: UserRepo: AlgorithmRepo: Limiter: Program](userId: Option[Int],
@@ -250,20 +264,13 @@ object AppImperative {
     } yield (recId, filteredRecs)
   }
 
-  private def printResultEither(userId: Option[Int], result: Either[AppError, (String, UserRec)]): Unit = {
-    result.fold(error => println(error.message), recs => {
-      println(s"\nRecommnedations for userId ${recs._2.userId}....")
-      println(s"Algorithm ${recs._1}")
+  private def printResult[F[_]: Program](userId: Option[Int], result: F[(String, UserRec)]): Unit = {
+    result.fold[AppError, Unit](e => println(s"Error: ${e.message}"), recs => {
+      println("\nRecommendations")
+      println("--------------------------------------")
+      println(s"UserId: ${recs._2.userId}")
+      println(s"Algorithm: ${recs._1}")
       println(s"Recs: ${recs._2.recs}")
-    })
-  }
-
-  private def printResultOpt(userId: Option[Int], result: Option[(String, UserRec)]): Unit = {
-    result.fold("Error")(recs => {
-      println(s"\nRecommnedations for userId ${recs._2.userId}....")
-      println(s"Algorithm ${recs._1}")
-      println(s"Recs: ${recs._2.recs}")
-      ""
     })
   }
 
