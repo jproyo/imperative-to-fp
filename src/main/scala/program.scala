@@ -1,5 +1,7 @@
 package program
 
+import program.AppImperative.RecsEither
+
 import scala.util.Random
 
 object DataSource {
@@ -39,25 +41,20 @@ object DataSource {
   }
 
 
-  def algorithm1(userId: UserId): Either[AppError, UserRec] =
-    recommendations
-      .find(u => u.userId == userId)
-      .toRight(RecommendationsNotFound(userId, "algo1"))
+  case class Algorithm(name: String, run: UserId => Option[UserRec])
 
-  def algorithm2(userId: UserId): Either[AppError, UserRec] =
-    recommendations
-      .find(u => u.userId == userId)
-      .map(_.copy(recs = recs.filter(r => r.recId > "h").toList))
-      .toRight(RecommendationsNotFound(userId, "algo2"))
+  val algo1 = Algorithm("algo1", userId => recommendations.find(u => u.userId == userId))
 
-  def algorithm3(userId: UserId): Either[AppError, UserRec] =
-    None.toRight(RecommendationsNotFound(userId, "algo3"))
+  val algo2 = Algorithm("algo2", userId => recommendations
+    .find(u => u.userId == userId)
+    .map(_.copy(recs = recs.filter(r => r.recId > "h").toList)))
 
-  type Algo = UserId => Either[AppError, UserRec]
+  val algo3 = Algorithm("algo3" ,_ => None)
 
   lazy val algorithms = Map (
-    "algo1" -> algorithm1 _,
-    "algo2" -> algorithm2 _
+    "algo1" -> algo1,
+    "algo2" -> algo2,
+    "algo3" -> algo3
   )
 
   val algoDefault = Some("algo1")
@@ -91,17 +88,164 @@ object AppImperative {
       recs.copy(recs = recs.recs.slice(0, limit))
   }
 
+  trait Program[F[_]] {
+
+    def chain[A, B](fa: F[A], afb: A => F[B]): F[B]
+
+    def map[A, B](fa: F[A], ab: A => B): F[B]
+
+  }
+  object Program {
+    def apply[F[_]](implicit F: Program[F]): Program[F] = F
+  }
+  implicit class ProgramSyntax[F[_], A](fa: F[A]) {
+    def map[B](f: A => B)(implicit F: Program[F]): F[B] = F.map(fa, f)
+    def flatMap[B](afb: A => F[B])(implicit F: Program[F]): F[B] = F.chain(fa, afb)
+  }
+
+  trait UserRepo[F[_]] {
+    def getUser(userId: Option[Int]): F[UserId]
+  }
+
+  object UserRepo {
+    def apply[F[_]](implicit F: UserRepo[F]): UserRepo[F] = F
+  }
+
+  def getUser[F[_]: UserRepo](userId: Option[Int]): F[UserId] = UserRepo[F].getUser(userId)
+
+  trait Limiter[F[_]] {
+    def limit(limit: Option[Int]): F[Int]
+  }
+
+  object Limiter {
+    def apply[F[_]](implicit F: Limiter[F]): Limiter[F] = F
+  }
+
+  def limiter[F[_]: Limiter](limit: Option[Int]): F[Int] = Limiter[F].limit(limit)
+
+
+  trait AlgorithmRepo[F[_]] {
+    def getAlgorithm(recommenderId: Option[String]): F[(String, Algorithm)]
+    def execute(algo: Algorithm, userId: UserId): F[UserRec]
+  }
+
+  object AlgorithmRepo {
+    def apply[F[_]](implicit F: AlgorithmRepo[F]): AlgorithmRepo[F] = F
+  }
+
+  def getAlgorithm[F[_]: AlgorithmRepo](recommenderId: Option[String]): F[(String, Algorithm)] = AlgorithmRepo[F].getAlgorithm(recommenderId)
+  def execute[F[_]: AlgorithmRepo](algorithm: Algorithm, userId: UserId): F[UserRec] = AlgorithmRepo[F].execute(algorithm, userId)
+
+
+  object RecsOption {
+
+    implicit val program = new Program[Option] {
+      override def chain[A, B](fa: Option[A], afb: A => Option[B]): Option[B] = fa.flatMap(afb)
+
+      override def map[A, B](fa: Option[A], ab: A => B): Option[B] = fa.map(ab)
+
+    }
+
+    implicit val userRepo = new UserRepo[Option] {
+      override def getUser(userId: Option[Int]): Option[UserId] = {
+        for {
+          userParam <- userId
+          userData  <- users.find(_.userId == userParam)
+        } yield userData
+      }
+    }
+
+    implicit val algorithmRepo = new AlgorithmRepo[Option] {
+      override def getAlgorithm(recommenderId: Option[String]): Option[(String, Algorithm)] = {
+        (for {
+          recorDef  <- recommenderId.orElse(algoDefault)
+          recId     <- algorithms.keys.find(_ == recorDef).orElse(algoDefault)
+          algorithm <- algorithms.get(recId)
+        } yield (recId, algorithm))
+      }
+
+      override def execute(algo: Algorithm, userId: UserId): Option[UserRec] = algo.run(userId)
+
+    }
+
+    implicit val limiter = new Limiter[Option] {
+      override def limit(limit: Option[Int]): Option[Int] = limit.orElse(Some(limitDefault))
+    }
+  }
+
+  object RecsEither {
+
+    implicit val program = new Program[Either[AppError, ?]] {
+      override def chain[A, B](fa: Either[AppError, A], afb: A => Either[AppError, B]): Either[AppError, B] =
+        fa.flatMap(afb)
+
+      override def map[A, B](fa: Either[AppError, A], ab: A => B): Either[AppError, B] = fa.map(ab)
+
+    }
+
+    implicit val userRepo = new UserRepo[Either[AppError, ?]] {
+      override def getUser(userId: Option[Int]): Either[AppError, UserId] = {
+        for {
+          userParam <- userId.toRight(UserNotProvided)
+          userData  <- users.find(_.userId == userParam).toRight(UserNotFound(UserId(userParam)))
+        } yield userData
+      }
+    }
+
+    implicit val algorithmRepo = new AlgorithmRepo[Either[AppError, ?]] {
+      override def getAlgorithm(recommenderId: Option[String]): Either[AppError, (String, Algorithm)] = {
+        (for {
+          recorDef  <- recommenderId.orElse(algoDefault)
+          recId     <- algorithms.keys.find(_ == recorDef).orElse(algoDefault)
+          algorithm <- algorithms.get(recId)
+        } yield (recId, algorithm)).toRight(UnknownError)
+      }
+
+      override def execute(algo: Algorithm, userId: UserId): Either[AppError, UserRec] =
+        algo.run(userId).toRight(RecommendationsNotFound(userId, algo.name))
+    }
+
+    implicit val limiter = new Limiter[Either[AppError, ?]] {
+      override def limit(limit: Option[Int]): Either[AppError, Int] =
+        limit.orElse(Some(limitDefault)).toRight(UnknownError)
+    }
+  }
+
+  private def getRecommendations[F[_]: UserRepo: AlgorithmRepo: Limiter: Program](userId: Option[Int],
+                                 recommenderId: Option[String],
+                                 limit: Option[Int]): F[(String, UserRec)] = {
+    for {
+      userData            <- getUser(userId)
+      (recId, algorithm)  <- getAlgorithm(recommenderId)
+      recs                <- execute(algorithm, userData)
+      limit               <- limiter(limit)
+      filteredRecs         = recs.filter(limit)
+    } yield (recId, filteredRecs)
+  }
+
   def program(userId: Option[Int],
               recommenderId: Option[String] = None,
               limit: Option[Int] = None): Unit = {
 
+//    implicit val user =  RecsOption.userRepo
+//    implicit val algo = RecsOption.algorithmRepo
+//    implicit val limiter = RecsOption.limiter
+//    implicit val program = RecsOption.program
+
+    implicit val user =  RecsEither.userRepo
+    implicit val algo = RecsEither.algorithmRepo
+    implicit val limiter = RecsEither.limiter
+    implicit val program = RecsEither.program
+
     val result = getRecommendations(userId, recommenderId, limit)
 
-    printResult(userId, result)
+    printResultEither(userId, result)
+
+//    printResultOpt(userId, result)
 
   }
 
-  private def printResult(userId: Option[Int], result: Either[AppError, (String, UserRec)]): Unit = {
+  private def printResultEither(userId: Option[Int], result: Either[AppError, (String, UserRec)]): Unit = {
     result.fold(error => println(error.message), recs => {
       println(s"\nRecommnedations for userId ${recs._2.userId}....")
       println(s"Algorithm ${recs._1}")
@@ -109,32 +253,16 @@ object AppImperative {
     })
   }
 
-  private def getRecommendations(userId: Option[Int],
-                                 recommenderId: Option[String],
-                                 limit: Option[Int]): Either[AppError, (String, UserRec)] = {
-    for {
-      userData            <- getUser(userId)
-      (recId, algorithm)  <- getAlgorithm(recommenderId)
-      recs                <- algorithm(userData)
-      limit               <- limit.orElse(Some(limitDefault)).toRight(UnknownError)
-      filteredRecs         = recs.filter(limit)
-    } yield (recId, filteredRecs)
+  private def printResultOpt(userId: Option[Int], result: Option[(String, UserRec)]): Unit = {
+    result.fold("Error")(recs => {
+      println(s"\nRecommnedations for userId ${recs._2.userId}....")
+      println(s"Algorithm ${recs._1}")
+      println(s"Recs: ${recs._2.recs}")
+      ""
+    })
   }
 
-  private def getAlgorithm(recommenderId: Option[String]): Either[AppError, (String, Algo)] = {
-    (for {
-      recorDef  <- recommenderId.orElse(algoDefault)
-      recId     <- algorithms.keys.find(_ == recorDef).orElse(algoDefault)
-      algorithm <- algorithms.get(recId)
-    } yield (recId, algorithm)).toRight(UnknownError)
-  }
 
-  private def getUser(userId: Option[Int]): Either[AppError, UserId] = {
-    for {
-      userParam <- userId.toRight(UserNotProvided)
-      userData  <- users.find(_.userId == userParam).toRight(UserNotFound(UserId(userParam)))
-    } yield userData
-  }
 
 }
 
