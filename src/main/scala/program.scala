@@ -67,7 +67,7 @@ object algebras {
 
   trait Program[F[_]] {
 
-    def chain[A, B](fa: F[A], afb: A => F[B]): F[B]
+    def flatMap[A, B](fa: F[A], afb: A => F[B]): F[B]
 
     def map[A, B](fa: F[A], ab: A => B): F[B]
 
@@ -79,7 +79,7 @@ object algebras {
   }
   implicit class ProgramSyntax[F[_], A](fa: F[A]) {
     def map[B](f: A => B)(implicit F: Program[F]): F[B] = F.map(fa, f)
-    def flatMap[B](afb: A => F[B])(implicit F: Program[F]): F[B] = F.chain(fa, afb)
+    def flatMap[B](afb: A => F[B])(implicit F: Program[F]): F[B] = F.flatMap(fa, afb)
     def fold[B, C](first: B => C, second: A => C)(implicit F: Program[F]): C = F.fold(fa, first, second)
   }
 
@@ -127,7 +127,7 @@ object interpreter {
 
 
   implicit object ProgramOption extends Program[Option] {
-    override def chain[A, B](fa: Option[A], afb: A => Option[B]): Option[B] = fa.flatMap(afb)
+    override def flatMap[A, B](fa: Option[A], afb: A => Option[B]): Option[B] = fa.flatMap(afb)
 
     override def map[A, B](fa: Option[A], ab: A => B): Option[B] = fa.map(ab)
 
@@ -166,7 +166,7 @@ object interpreter {
 
 
   implicit object ProgramEither extends Program[Either[AppError, ?]] {
-    override def chain[A, B](fa: Either[AppError, A], afb: A => Either[AppError, B]): Either[AppError, B] =
+    override def flatMap[A, B](fa: Either[AppError, A], afb: A => Either[AppError, B]): Either[AppError, B] =
       fa.flatMap(afb)
 
     override def map[A, B](fa: Either[AppError, A], ab: A => B): Either[AppError, B] = fa.map(ab)
@@ -243,13 +243,14 @@ object AppImperative {
 
     import interpreter._
 
-//    val result = getRecommendations[Either[AppError, ?]](userId, recommenderId, limit)
-//
-//    printResult[Either[AppError, ?]](userId, result)
+    val resultEither = getRecommendations[Either[AppError, ?]](userId, recommenderId, limit)
 
-      val result = getRecommendations[Option](userId, recommenderId, limit)
+    printResult[Either[AppError, ?]](userId, resultEither)
 
-      printResult[Option](userId, result)
+    val resultOption = getRecommendations[Option](userId, recommenderId, limit)
+
+    printResult[Option](userId, resultOption)
+
   }
 
   def getRecommendations[F[_]: UserRepo: AlgorithmRepo: Limiter: Program](userId: Option[Int],
