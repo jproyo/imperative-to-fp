@@ -1,7 +1,6 @@
 package program
 
 import scala.util.Random
-import interpreter.option._
 
 object DataSource {
 
@@ -123,78 +122,74 @@ object interpreter {
   import DataSource._
   import algebras._
 
-  object option {
 
-    implicit val program: Program[Option] = new Program[Option] {
-      override def chain[A, B](fa: Option[A], afb: A => Option[B]): Option[B] = fa.flatMap(afb)
+  implicit object ProgramOption extends Program[Option] {
+    override def chain[A, B](fa: Option[A], afb: A => Option[B]): Option[B] = fa.flatMap(afb)
 
-      override def map[A, B](fa: Option[A], ab: A => B): Option[B] = fa.map(ab)
+    override def map[A, B](fa: Option[A], ab: A => B): Option[B] = fa.map(ab)
 
-    }
+  }
 
-    implicit val userRepo: UserRepo[Option] = new UserRepo[Option] {
-      override def getUser(userId: Option[Int]): Option[UserId] = {
-        for {
-          userParam <- userId
-          userData  <- users.find(_.userId == userParam)
-        } yield userData
-      }
-    }
-
-    implicit val algorithmRepo: AlgorithmRepo[Option] = new AlgorithmRepo[Option] {
-      override def getAlgorithm(recommenderId: Option[String]): Option[(String, Algorithm)] = {
-        (for {
-          recorDef  <- recommenderId.orElse(algoDefault)
-          recId     <- algorithms.keys.find(_ == recorDef).orElse(algoDefault)
-          algorithm <- algorithms.get(recId)
-        } yield (recId, algorithm))
-      }
-
-      override def execute(algo: Algorithm, userId: UserId): Option[UserRec] = algo.run(userId)
-
-    }
-
-    implicit val limiter: Limiter[Option] = new Limiter[Option] {
-      override def limit(limit: Option[Int]): Option[Int] = limit.orElse(Some(limitDefault))
+  implicit object UserRepoOption extends UserRepo[Option] {
+    override def getUser(userId: Option[Int]): Option[UserId] = {
+      for {
+        userParam <- userId
+        userData  <- users.find(_.userId == userParam)
+      } yield userData
     }
   }
 
-  object either {
-
-    implicit val program: Program[Either[AppError, ?]] = new Program[Either[AppError, ?]] {
-      override def chain[A, B](fa: Either[AppError, A], afb: A => Either[AppError, B]): Either[AppError, B] =
-        fa.flatMap(afb)
-
-      override def map[A, B](fa: Either[AppError, A], ab: A => B): Either[AppError, B] = fa.map(ab)
-
+  implicit object AlgorithmRepoOption extends AlgorithmRepo[Option] {
+    override def getAlgorithm(recommenderId: Option[String]): Option[(String, Algorithm)] = {
+      (for {
+        recorDef  <- recommenderId.orElse(algoDefault)
+        recId     <- algorithms.keys.find(_ == recorDef).orElse(algoDefault)
+        algorithm <- algorithms.get(recId)
+      } yield (recId, algorithm))
     }
 
-    implicit val userRepo: UserRepo[Either[AppError, ?]] = new UserRepo[Either[AppError, ?]] {
-      override def getUser(userId: Option[Int]): Either[AppError, UserId] = {
-        for {
-          userParam <- userId.toRight(UserNotProvided)
-          userData  <- users.find(_.userId == userParam).toRight(UserNotFound(UserId(userParam)))
-        } yield userData
-      }
+    override def execute(algo: Algorithm, userId: UserId): Option[UserRec] = algo.run(userId)
+
+  }
+
+  implicit object LimiterOption extends Limiter[Option] {
+    override def limit(limit: Option[Int]): Option[Int] = limit.orElse(Some(limitDefault))
+  }
+
+
+  implicit object ProgramEither extends Program[Either[AppError, ?]] {
+    override def chain[A, B](fa: Either[AppError, A], afb: A => Either[AppError, B]): Either[AppError, B] =
+      fa.flatMap(afb)
+
+    override def map[A, B](fa: Either[AppError, A], ab: A => B): Either[AppError, B] = fa.map(ab)
+
+  }
+
+  implicit object UserRepoEither extends UserRepo[Either[AppError, ?]] {
+    override def getUser(userId: Option[Int]): Either[AppError, UserId] = {
+      for {
+        userParam <- userId.toRight(UserNotProvided)
+        userData  <- users.find(_.userId == userParam).toRight(UserNotFound(UserId(userParam)))
+      } yield userData
+    }
+  }
+
+  implicit object AlgoRepoEither extends AlgorithmRepo[Either[AppError, ?]] {
+    override def getAlgorithm(recommenderId: Option[String]): Either[AppError, (String, Algorithm)] = {
+      (for {
+        recorDef  <- recommenderId.orElse(algoDefault)
+        recId     <- algorithms.keys.find(_ == recorDef).orElse(algoDefault)
+        algorithm <- algorithms.get(recId)
+      } yield (recId, algorithm)).toRight(UnknownError)
     }
 
-    implicit val algorithmRepo: AlgorithmRepo[Either[AppError, ?]] = new AlgorithmRepo[Either[AppError, ?]] {
-      override def getAlgorithm(recommenderId: Option[String]): Either[AppError, (String, Algorithm)] = {
-        (for {
-          recorDef  <- recommenderId.orElse(algoDefault)
-          recId     <- algorithms.keys.find(_ == recorDef).orElse(algoDefault)
-          algorithm <- algorithms.get(recId)
-        } yield (recId, algorithm)).toRight(UnknownError)
-      }
+    override def execute(algo: Algorithm, userId: UserId): Either[AppError, UserRec] =
+      algo.run(userId).toRight(RecommendationsNotFound(userId, algo.name))
+  }
 
-      override def execute(algo: Algorithm, userId: UserId): Either[AppError, UserRec] =
-        algo.run(userId).toRight(RecommendationsNotFound(userId, algo.name))
-    }
-
-    implicit val limiter: Limiter[Either[AppError, ?]] = new Limiter[Either[AppError, ?]] {
-      override def limit(limit: Option[Int]): Either[AppError, Int] =
-        limit.orElse(Some(limitDefault)).toRight(UnknownError)
-    }
+  implicit object LimiterEither extends Limiter[Either[AppError, ?]] {
+    override def limit(limit: Option[Int]): Either[AppError, Int] =
+      limit.orElse(Some(limitDefault)).toRight(UnknownError)
   }
 
 
@@ -233,11 +228,13 @@ object AppImperative {
               limit: Option[Int] = None): Unit = {
 
 
-    val result = getRecommendations[Option](userId, recommenderId, limit)
+    import interpreter._
 
-//    printResultEither(userId, result)
+    val result = getRecommendations[Either[AppError, ?]](userId, recommenderId, limit)
 
-    printResultOpt(userId, result)
+    printResultEither(userId, result)
+
+//    printResultOpt(userId, result)
 
   }
 
