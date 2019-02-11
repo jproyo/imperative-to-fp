@@ -136,7 +136,7 @@ object AppImperative {
               recommenderId: Option[String] = None,
               limit: Option[Int] = None): Unit = {
 
-    val result: Option[Result] = getRecommendations(userId, recommenderId, limit)
+    val result: Option[Result] = getRecommendations[Option](userId, recommenderId, limit)
 
     printResults(userId, result)
 
