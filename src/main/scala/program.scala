@@ -24,6 +24,8 @@ object DataSource {
   case class Rec(recId: String, score: Float)
   case class UserRec(userId: UserId, recs: List[Rec])
 
+  case class Result(algorithm: Algorithm, recs: UserRec)
+
   lazy val users = (1 until 10).map(UserId).toList
 
   lazy val recs = ('a' to 'z').map(c => Rec(c.toString, Random.nextFloat))
@@ -97,22 +99,19 @@ object AppImperative {
               recommenderId: Option[String] = None,
               limit: Option[Int] = None): Unit = {
 
+    val result = for {
+      user           <- getUser(userId)
+      algorithm      <- getAlgorithm(recommenderId)
+      result         <- algorithm.run(UserId(user))
+      limitFilter     = limit.getOrElse(limitDefault)
+      resultFiltered  = result.copy(recs = recs.slice(0, limitFilter).toList)
+    } yield Result(algorithm, resultFiltered)
 
-    val user = getUser(userId)
-
-    val algorithm = getAlgorithm(recommenderId)
-
-    val result = algorithm.flatMap(_.run(UserId(user.get))).orElse(Some(emptyRecs(user.get)))
-
-    val limitFilter = limit.getOrElse(limitDefault)
-
-    val resultFiltered = result.map(_.copy(recs = recs.slice(0, limitFilter).toList))
-
-    resultFiltered match {
-      case Some(recs) => {
-        println(s"\nRecommnedations for userId ${recs.userId}...")
-        println(s"Algorithm ${algorithm.get.name}")
-        println(s"Recs: ${recs.recs}")
+    result match {
+      case Some(algoRes) => {
+        println(s"\nRecommnedations for userId ${algoRes.recs.userId}...")
+        println(s"Algorithm ${algoRes.algorithm.name}")
+        println(s"Recs: ${algoRes.recs.recs}")
       }
       case None => println(s"No recommendations found for userId $userId")
     }
