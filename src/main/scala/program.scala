@@ -86,11 +86,16 @@ object AppImperative {
   import DataSource._
 
 
+  def getUser(userId: Option[Int]): Option[Int] =
+    userId.filter(user => users.exists(_.userId == user))
+
   def program(userId: Option[Int],
               recommenderId: Option[String] = None,
               limit: Option[Int] = None): Unit = {
 
 
+    val user = getUser(user)
+    
     userId match {
       case Some(user) => {
         if (users.exists(_.userId == user)) {
