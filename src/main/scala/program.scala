@@ -86,52 +86,35 @@ object AppImperative {
   import DataSource._
 
 
+  def getUser(userId: Option[Int]): Option[Int] =
+    userId.filter(user => users.exists(_.userId == user))
+
+  def getAlgorithm(recommenderId: Option[String]): Option[Algorithm] =
+    recommenderId.orElse(algoDefault).flatMap(algorithms.get(_))
+
+
   def program(userId: Option[Int],
               recommenderId: Option[String] = None,
               limit: Option[Int] = None): Unit = {
 
 
-    userId match {
-      case Some(user) => {
-        if (users.exists(_.userId == user)) {
-          var algoId: String = algoDefault.get
-          recommenderId match {
-            case Some(recId) => {
-              if (recId != null && recId.nonEmpty) {
-                if (algorithms.keys.exists(_ == recId)) {
-                  algoId = recId
-                }
-              }
-            }
-            case None => ()
-          }
-          var result = algorithms.get(algoId).flatMap(_.run(UserId(user))).getOrElse(emptyRecs(user))
-          if (result.recs.isEmpty) {
-            result = algorithms.get(algoDefault.get).flatMap(_.run(UserId(user))).getOrElse(emptyRecs(user))
-          }
-          if (result.recs.isEmpty) {
-            println(s"No recommendations found for userId $userId")
-          } else {
-            val amount = limit match {
-              case Some(l) => l
-              case None => limitDefault
-            }
-            val filteredResult = result.copy(recs = recs.slice(0, amount).toList)
-            println(s"\nRecommnedations for userId $user...")
-            println(s"Algorithm $algoId")
-            println(s"Recs: ${filteredResult.recs}")
-          }
-          sys.exit(0)
-        } else {
-          println(s"No user found with userId $userId")
-          sys.exit(1)
-        }
+    val user = getUser(userId)
 
+    val algorithm = getAlgorithm(recommenderId)
+
+    val result = algorithm.flatMap(_.run(UserId(user.get))).orElse(Some(emptyRecs(user.get)))
+
+    val limitFilter = limit.getOrElse(limitDefault)
+
+    val resultFiltered = result.map(_.copy(recs = recs.slice(0, limitFilter).toList))
+
+    resultFiltered match {
+      case Some(recs) => {
+        println(s"\nRecommnedations for userId ${recs.userId}...")
+        println(s"Algorithm ${algorithm.get.name}")
+        println(s"Recs: ${recs.recs}")
       }
-      case None => {
-        println("UserId must be provided")
-        sys.exit(1)
-      }
+      case None => println(s"No recommendations found for userId $userId")
     }
 
   }
