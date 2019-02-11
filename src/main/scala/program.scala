@@ -99,7 +99,7 @@ object AppImperative {
 
   }
 
-  def getRecommendations(userId: Option[Int], recommenderId: Option[String], limit: Option[Int]) = {
+  def getRecommendations(userId: Option[Int], recommenderId: Option[String], limit: Option[Int]): Option[Result] = {
     val result = for {
       user <- getUser(userId)
       algorithm <- getAlgorithm(recommenderId)
@@ -110,15 +110,12 @@ object AppImperative {
     result
   }
 
-  def printResults(userId: Option[Int], result: Option[Result]) = {
-    result match {
-      case Some(algoRes) => {
+  def printResults(userId: Option[Int], result: Option[Result]): Unit = {
+    result.fold(println(s"No recommendations found for userId $userId"))(algoRes => {
         println(s"\nRecommnedations for userId ${algoRes.recs.userId}...")
         println(s"Algorithm ${algoRes.algorithm.name}")
         println(s"Recs: ${algoRes.recs.recs}")
-      }
-      case None => println(s"No recommendations found for userId $userId")
-    }
+    })
   }
 
   private def getUser(userId: Option[Int]): Option[Int] =
