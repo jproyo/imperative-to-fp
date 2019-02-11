@@ -77,9 +77,8 @@ object algebras {
     def getUser(userId: Option[Int]): F[UserId]
   }
 
-
   object UserRepo {
-    def apply[F[_]](implicit UserR: UserRepo[F]): UserRepo[F] = UserR
+    def apply[F[_]](implicit F: UserRepo[F]): UserRepo[F] = F
   }
 
   def getUser[F[_]: UserRepo](userId: Option[Int]): F[UserId] = UserRepo[F].getUser(userId)
@@ -153,7 +152,6 @@ object AppImperative {
 
   import DataSource._
   import algebras._
-  import interpreter._
 
 
 
@@ -161,11 +159,15 @@ object AppImperative {
               recommenderId: Option[String] = None,
               limit: Option[Int] = None): Unit = {
 
+    import interpreter._
+
     val result: Option[Result] = getRecommendations[Option](userId, recommenderId, limit)
 
     printResults(userId, result)
 
   }
+
+
 
   def getRecommendations[F[_]: UserRepo: AlgorithmRepo: Filter](userId: Option[Int],
                                                                 recommenderId: Option[String],
