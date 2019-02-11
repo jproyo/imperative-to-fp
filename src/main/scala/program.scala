@@ -101,6 +101,9 @@ object AppImperative {
     val user = getUser(user)
 
     val algorithm = getAlgorithm(recommenderId)
+
+    val result = algorithm.flatMap(_.run(user)).getOrElse(emptyRecs(user.get))
+
     
     userId match {
       case Some(user) => {
