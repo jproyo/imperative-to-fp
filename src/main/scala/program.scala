@@ -109,6 +109,27 @@ object algebras {
 
 }
 
+object interpreter {
+
+  import DataSource._
+  import algebras._
+
+  implicit object UserRepoOption extends UserRepo[Option] {
+    override def getUser(userId: Option[Int]): Option[UserId] = ???
+  }
+
+  implicit object AlgorithmRepoOption extends AlgorithmRepo[Option]{
+    override def getAlgorithm(recommenderId: Option[String]): Option[Algorithm] = ???
+
+    override def execute(algo: Algorithm, userId: UserId): Option[UserRec] = ???
+  }
+
+  implicit object FilterOption extends Filter[Option] {
+    override def filter(userRec: UserRec, limit: Int): Option[UserRec] = ???
+  }
+
+}
+
 
 
 /**
@@ -127,8 +148,9 @@ object algebras {
   */
 object AppImperative {
 
-  import algebras._
   import DataSource._
+  import algebras._
+  import interpreter._
 
 
 
