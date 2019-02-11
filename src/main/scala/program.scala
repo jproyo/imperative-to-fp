@@ -120,7 +120,8 @@ object interpreter {
   }
 
   implicit object AlgorithmRepoOption extends AlgorithmRepo[Option]{
-    override def getAlgorithm(recommenderId: Option[String]): Option[Algorithm] = ???
+    override def getAlgorithm(recommenderId: Option[String]): Option[Algorithm] =
+      recommenderId.orElse(algoDefault).flatMap(algorithms.get(_))
 
     override def execute(algo: Algorithm, userId: UserId): Option[UserRec] = ???
   }
