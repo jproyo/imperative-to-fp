@@ -104,6 +104,8 @@ object AppImperative {
 
     val result = algorithm.flatMap(_.run(user)).getOrElse(emptyRecs(user.get))
 
+    val limitFilter = limit.orElse(Some(limitDefault))
+
     
     userId match {
       case Some(user) => {
