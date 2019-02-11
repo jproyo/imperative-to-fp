@@ -123,11 +123,12 @@ object interpreter {
     override def getAlgorithm(recommenderId: Option[String]): Option[Algorithm] =
       recommenderId.orElse(algoDefault).flatMap(algorithms.get(_))
 
-    override def execute(algo: Algorithm, userId: UserId): Option[UserRec] = ???
+    override def execute(algo: Algorithm, userId: UserId): Option[UserRec] = algo.run(userId)
   }
 
   implicit object FilterOption extends Filter[Option] {
-    override def filter(userRec: UserRec, limit: Int): Option[UserRec] = ???
+    override def filter(userRec: UserRec, limit: Int): Option[UserRec] =
+      Some(userRec.copy(recs = recs.slice(0, limit).toList))
   }
 
 }
@@ -187,16 +188,6 @@ object AppImperative {
       println(s"Recs: ${algoRes.recs.recs}")
     })
   }
-
-//  private def getAlgorithm(recommenderId: Option[String]): Option[Algorithm] =
-//  recommenderId.orElse(algoDefault).flatMap(algorithms.get(_))
-//
-//  private def executeAlgorithm(user: UserId, algorithm: Algorithm): Option[UserRec] =
-//    algorithm.run(user)
-//
-//  private def filterResults(result: UserRec, limitFilter: Int): Option[UserRec] =
-//    Some(result.copy(recs = recs.slice(0, limitFilter).toList))
-
 
 }
 
