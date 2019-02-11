@@ -101,11 +101,11 @@ object AppImperative {
 
   def getRecommendations(userId: Option[Int], recommenderId: Option[String], limit: Option[Int]): Option[Result] = {
     val result = for {
-      user <- getUser(userId)
-      algorithm <- getAlgorithm(recommenderId)
-      result <- algorithm.run(UserId(user))
-      limitFilter = limit.getOrElse(limitDefault)
-      resultFiltered = result.copy(recs = recs.slice(0, limitFilter).toList)
+      user           <- getUser(userId)
+      algorithm      <- getAlgorithm(recommenderId)
+      result         <- algorithm.run(UserId(user))
+      limitFilter     = limit.getOrElse(limitDefault)
+      resultFiltered  = result.copy(recs = recs.slice(0, limitFilter).toList)
     } yield Result(algorithm, resultFiltered)
     result
   }
