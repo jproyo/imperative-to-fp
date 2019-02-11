@@ -95,14 +95,7 @@ object AppImperative {
 
     val result: Option[Result] = getRecommendations(userId, recommenderId, limit)
 
-    result match {
-      case Some(algoRes) => {
-        println(s"\nRecommnedations for userId ${algoRes.recs.userId}...")
-        println(s"Algorithm ${algoRes.algorithm.name}")
-        println(s"Recs: ${algoRes.recs.recs}")
-      }
-      case None => println(s"No recommendations found for userId $userId")
-    }
+    printResults(userId, result)
 
   }
 
@@ -115,6 +108,17 @@ object AppImperative {
       resultFiltered = result.copy(recs = recs.slice(0, limitFilter).toList)
     } yield Result(algorithm, resultFiltered)
     result
+  }
+
+  def printResults(userId: Option[Int], result: Option[Result]) = {
+    result match {
+      case Some(algoRes) => {
+        println(s"\nRecommnedations for userId ${algoRes.recs.userId}...")
+        println(s"Algorithm ${algoRes.algorithm.name}")
+        println(s"Recs: ${algoRes.recs.recs}")
+      }
+      case None => println(s"No recommendations found for userId $userId")
+    }
   }
 
   private def getUser(userId: Option[Int]): Option[Int] =
