@@ -115,7 +115,8 @@ object interpreter {
   import algebras._
 
   implicit object UserRepoOption extends UserRepo[Option] {
-    override def getUser(userId: Option[Int]): Option[UserId] = ???
+    override def getUser(userId: Option[Int]): Option[UserId] =
+      userId.filter(user => users.exists(_.userId == user)).map(UserId)
   }
 
   implicit object AlgorithmRepoOption extends AlgorithmRepo[Option]{
@@ -186,9 +187,6 @@ object AppImperative {
     })
   }
 
-//  private def getUser(userId: Option[Int]): Option[UserId] =
-//  userId.filter(user => users.exists(_.userId == user)).map(UserId)
-//
 //  private def getAlgorithm(recommenderId: Option[String]): Option[Algorithm] =
 //  recommenderId.orElse(algoDefault).flatMap(algorithms.get(_))
 //
