@@ -72,6 +72,22 @@ object algebras {
 
   import DataSource._
 
+  trait Program[F[_]] {
+
+    def flatMap[A, B](fa: F[A], afb: A => F[B]): F[B]
+
+    def map[A, B](fa: F[A], ab: A => B): F[B]
+
+  }
+  object Program {
+    def apply[F[_]](implicit F: Program[F]): Program[F] = F
+  }
+  implicit class ProgramSyntax[F[_], A](fa: F[A]) {
+    def map[B](f: A => B)(implicit F: Program[F]): F[B] = F.map(fa, f)
+    def flatMap[B](afb: A => F[B])(implicit F: Program[F]): F[B] = F.flatMap(fa, afb)
+  }
+
+
 
   trait UserRepo[F[_]] {
     def getUser(userId: Option[Int]): F[UserId]
@@ -106,6 +122,7 @@ object algebras {
   def getAlgorithm[F[_]: AlgorithmRepo](recommenderId: Option[String]): F[Algorithm] = AlgorithmRepo[F].getAlgorithm(recommenderId)
   def execute[F[_]: AlgorithmRepo](algo: Algorithm, userId: UserId): F[UserRec] = AlgorithmRepo[F].execute(algo, userId)
 
+
 }
 
 object interpreter {
@@ -129,6 +146,14 @@ object interpreter {
     override def filter(userRec: UserRec, limit: Int): Option[UserRec] =
       Some(userRec.copy(recs = recs.slice(0, limit).toList))
   }
+
+  implicit object ProgramOption extends Program[Option] {
+    override def flatMap[A, B](fa: Option[A], afb: A => Option[B]): Option[B] = fa.flatMap(afb)
+
+    override def map[A, B](fa: Option[A], ab: A => B): Option[B] = fa.map(ab)
+
+  }
+
 
 }
 
@@ -161,25 +186,23 @@ object AppImperative {
 
     import interpreter._
 
-    val result: Option[Result] = getRecommendations[Option](userId, recommenderId, limit)
+    val result = getRecommendations[Option](userId, recommenderId, limit)
 
     printResults(userId, result)
 
   }
 
-
-
-  def getRecommendations[F[_]: UserRepo: AlgorithmRepo: Filter](userId: Option[Int],
+  def getRecommendations[F[_]: UserRepo: AlgorithmRepo: Filter: Program](userId: Option[Int],
                                                                 recommenderId: Option[String],
                                                                 limit: Option[Int]): F[Result] = {
-    val result = for {
+    for {
       user           <- getUser(userId)
       algorithm      <- getAlgorithm(recommenderId)
-      result         <- execute(user, algorithm)
+      result         <- execute(algorithm, user)
       limitFilter     = limit.getOrElse(limitDefault)
       resultFiltered <- filter(result, limitFilter)
     } yield Result(algorithm, resultFiltered)
-    result
+
   }
 
 
