@@ -144,7 +144,7 @@ object AppImperative {
 
   def getRecommendations[F[_]: UserRepo: AlgorithmRepo: Filter](userId: Option[Int],
                                                                 recommenderId: Option[String],
-                                                                limit: Option[Int]): Option[Result] = {
+                                                                limit: Option[Int]): F[Result] = {
     val result = for {
       user           <- getUser(userId)
       algorithm      <- getAlgorithm(recommenderId)
