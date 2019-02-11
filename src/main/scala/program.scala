@@ -88,24 +88,12 @@ object AppImperative {
   import DataSource._
 
 
-  def getUser(userId: Option[Int]): Option[Int] =
-    userId.filter(user => users.exists(_.userId == user))
-
-  def getAlgorithm(recommenderId: Option[String]): Option[Algorithm] =
-    recommenderId.orElse(algoDefault).flatMap(algorithms.get(_))
-
 
   def program(userId: Option[Int],
               recommenderId: Option[String] = None,
               limit: Option[Int] = None): Unit = {
 
-    val result = for {
-      user           <- getUser(userId)
-      algorithm      <- getAlgorithm(recommenderId)
-      result         <- algorithm.run(UserId(user))
-      limitFilter     = limit.getOrElse(limitDefault)
-      resultFiltered  = result.copy(recs = recs.slice(0, limitFilter).toList)
-    } yield Result(algorithm, resultFiltered)
+    val result: Option[Result] = getRecommendations(userId, recommenderId, limit)
 
     result match {
       case Some(algoRes) => {
@@ -117,6 +105,24 @@ object AppImperative {
     }
 
   }
+
+  def getRecommendations(userId: Option[Int], recommenderId: Option[String], limit: Option[Int]) = {
+    val result = for {
+      user <- getUser(userId)
+      algorithm <- getAlgorithm(recommenderId)
+      result <- algorithm.run(UserId(user))
+      limitFilter = limit.getOrElse(limitDefault)
+      resultFiltered = result.copy(recs = recs.slice(0, limitFilter).toList)
+    } yield Result(algorithm, resultFiltered)
+    result
+  }
+
+  private def getUser(userId: Option[Int]): Option[Int] =
+    userId.filter(user => users.exists(_.userId == user))
+
+  private def getAlgorithm(recommenderId: Option[String]): Option[Algorithm] =
+    recommenderId.orElse(algoDefault).flatMap(algorithms.get(_))
+
 
 }
 
