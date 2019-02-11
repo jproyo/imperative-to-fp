@@ -93,6 +93,8 @@ object algebras {
     def apply[F[_]](implicit Fil: Filter[F]): Filter[F] = Fil
   }
 
+  def filter[F[_]: Filter](userRec: UserRec, limit: Int): F[UserRec] = Filter[F].filter(userRec, limit)
+
   trait AlgorithmRepo[F[_]] {
     def getAlgorithm(recommenderId: Option[String]): F[Algorithm]
     def execute(algo: Algorithm, userId: UserId): F[UserRec]
@@ -102,6 +104,8 @@ object algebras {
     def apply[F[_]](implicit Algo: AlgorithmRepo[F]): AlgorithmRepo[F] = Algo
   }
 
+  def getAlgorithm[F[_]: AlgorithmRepo](recommenderId: Option[String]): F[Algorithm] = AlgorithmRepo[F].getAlgorithm(recommenderId)
+  def execute[F[_]: AlgorithmRepo](algo: Algorithm, userId: UserId): F[UserRec] = AlgorithmRepo[F].execute(algo, userId)
 
 }
 
