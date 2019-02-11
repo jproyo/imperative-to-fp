@@ -103,7 +103,7 @@ object AppImperative {
     val result = for {
       user           <- getUser(userId)
       algorithm      <- getAlgorithm(recommenderId)
-      result         <- algorithm.run(UserId(user))
+      result         <- algorithm.run(user)
       limitFilter     = limit.getOrElse(limitDefault)
       resultFiltered  = result.copy(recs = recs.slice(0, limitFilter).toList)
     } yield Result(algorithm, resultFiltered)
@@ -118,8 +118,8 @@ object AppImperative {
     })
   }
 
-  private def getUser(userId: Option[Int]): Option[Int] =
-    userId.filter(user => users.exists(_.userId == user))
+  private def getUser(userId: Option[Int]): Option[UserId] =
+    userId.filter(user => users.exists(_.userId == user)).map(UserId)
 
   private def getAlgorithm(recommenderId: Option[String]): Option[Algorithm] =
     recommenderId.orElse(algoDefault).flatMap(algorithms.get(_))
