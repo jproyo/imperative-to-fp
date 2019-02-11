@@ -108,6 +108,16 @@ object AppImperative {
 
     val resultFiltered = result.map(_.copy(recs = recs.slice(0, limitFilter).toList))
 
+    resultFiltered match {
+      case Some(recs) => {
+        println(s"\nRecommnedations for userId ${recs.userId}...")
+        println(s"Algorithm ${algorithm.get}")
+        println(s"Recs: ${recs.recs}")
+      }
+      case None => println(s"No recommendations found for userId $userId")
+    }
+
+
     userId match {
       case Some(user) => {
         if (users.exists(_.userId == user)) {
