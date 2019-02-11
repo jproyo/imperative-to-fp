@@ -82,6 +82,8 @@ object algebras {
     def apply[F[_]](implicit UserR: UserRepo[F]): UserRepo[F] = UserR
   }
 
+  def getUser[F[_]: UserRepo](userId: Option[Int]): F[UserId] = UserRepo[F].getUser(userId)
+
 
   trait Filter[F[_]] {
     def filter(userRec: UserRec, limit: Int): F[UserRec]
