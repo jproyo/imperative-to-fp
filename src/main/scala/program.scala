@@ -102,11 +102,10 @@ object AppImperative {
 
     val algorithm = getAlgorithm(recommenderId)
 
-    val result = algorithm.flatMap(_.run(user)).getOrElse(emptyRecs(user.get))
+    val result = algorithm.flatMap(_.run(user)).orElse(Some(emptyRecs(user.get)))
 
     val limitFilter = limit.orElse(Some(limitDefault))
 
-    
     userId match {
       case Some(user) => {
         if (users.exists(_.userId == user)) {
