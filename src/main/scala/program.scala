@@ -68,6 +68,29 @@ object DataSource {
 
 }
 
+object algebras {
+
+  import DataSource._
+
+
+  trait UserRepo[F[_]] {
+    def getUser(userId: Option[Int]): F[UserId]
+  }
+
+  trait Filter[F[_]] {
+    def filter(userRec: UserRec, limit: Int): F[UserRec]
+  }
+
+
+  trait AlgorithmRepo[F[_]] {
+    def getAlgorithm(recommenderId: Option[String]): F[Algorithm]
+    def execute(algo: Algorithm, userId: UserId): F[UserRec]
+  }
+
+
+}
+
+
 
 /**
   * This is an exercise to explore advantages of moving from imperative design to FP design
