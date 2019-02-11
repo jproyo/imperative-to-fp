@@ -89,12 +89,18 @@ object AppImperative {
   def getUser(userId: Option[Int]): Option[Int] =
     userId.filter(user => users.exists(_.userId == user))
 
+  def getAlgorithm(recommenderId: Option[String]): Option[Algorithm] =
+    recommenderId.orElse(algoDefault).flatMap(algorithms.get(_))
+
+
   def program(userId: Option[Int],
               recommenderId: Option[String] = None,
               limit: Option[Int] = None): Unit = {
 
 
     val user = getUser(user)
+
+    val algorithm = getAlgorithm(recommenderId)
     
     userId match {
       case Some(user) => {
