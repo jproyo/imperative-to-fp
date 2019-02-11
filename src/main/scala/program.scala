@@ -127,6 +127,7 @@ object algebras {
   */
 object AppImperative {
 
+  import algebras._
   import DataSource._
 
 
@@ -145,9 +146,9 @@ object AppImperative {
     val result = for {
       user           <- getUser(userId)
       algorithm      <- getAlgorithm(recommenderId)
-      result         <- executeAlgorithm(user, algorithm)
+      result         <- execute(user, algorithm)
       limitFilter     = limit.getOrElse(limitDefault)
-      resultFiltered <- filterResults(result, limitFilter)
+      resultFiltered <- filter(result, limitFilter)
     } yield Result(algorithm, resultFiltered)
     result
   }
@@ -161,17 +162,17 @@ object AppImperative {
     })
   }
 
-  private def getUser(userId: Option[Int]): Option[UserId] =
-  userId.filter(user => users.exists(_.userId == user)).map(UserId)
-
-  private def getAlgorithm(recommenderId: Option[String]): Option[Algorithm] =
-  recommenderId.orElse(algoDefault).flatMap(algorithms.get(_))
-
-  private def executeAlgorithm(user: UserId, algorithm: Algorithm): Option[UserRec] =
-    algorithm.run(user)
-
-  private def filterResults(result: UserRec, limitFilter: Int): Option[UserRec] =
-    Some(result.copy(recs = recs.slice(0, limitFilter).toList))
+//  private def getUser(userId: Option[Int]): Option[UserId] =
+//  userId.filter(user => users.exists(_.userId == user)).map(UserId)
+//
+//  private def getAlgorithm(recommenderId: Option[String]): Option[Algorithm] =
+//  recommenderId.orElse(algoDefault).flatMap(algorithms.get(_))
+//
+//  private def executeAlgorithm(user: UserId, algorithm: Algorithm): Option[UserRec] =
+//    algorithm.run(user)
+//
+//  private def filterResults(result: UserRec, limitFilter: Int): Option[UserRec] =
+//    Some(result.copy(recs = recs.slice(0, limitFilter).toList))
 
 
 }
