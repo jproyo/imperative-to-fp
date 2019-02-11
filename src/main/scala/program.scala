@@ -105,7 +105,7 @@ object AppImperative {
       algorithm      <- getAlgorithm(recommenderId)
       result         <- algorithm.run(user)
       limitFilter     = limit.getOrElse(limitDefault)
-      resultFiltered  = result.copy(recs = recs.slice(0, limitFilter).toList)
+      resultFiltered <- filterResults(result, limitFilter)
     } yield Result(algorithm, resultFiltered)
     result
   }
@@ -123,6 +123,9 @@ object AppImperative {
 
   private def getAlgorithm(recommenderId: Option[String]): Option[Algorithm] =
     recommenderId.orElse(algoDefault).flatMap(algorithms.get(_))
+
+  private def filterResults(result: UserRec, limitFilter: Int): Option[UserRec] =
+    Some(result.copy(recs = recs.slice(0, limitFilter).toList))
 
 
 }
