@@ -218,7 +218,7 @@ object interpreter {
   * Story 3: As an user i want to be able to be retrieve with a limited number of recommendations
   *
   */
-object AppImperative {
+object AppFunctional {
 
   import DataSource._
   import algebras._
@@ -266,7 +266,7 @@ object AppImperative {
 
 
 object ToScalaFP extends App {
-  import AppImperative._
+  import AppFunctional._
 
   program(Some(1), Some("algo1"), None)
   println("------------------------------\n")
