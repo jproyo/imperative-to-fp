@@ -196,7 +196,7 @@ object interpreter {
       fa.map(ab)
 
     override def fold[A, B, C](fa: Either[AppError, A], first: B => C, second: A => C): C =
-      fa.fold(first(_), second(_))
+      fa.fold(error => first(error.asInstanceOf[B]), second(_))
   }
 
 
@@ -231,9 +231,9 @@ object AppImperative {
 
     import interpreter._
 
-    val resultEither = getRecommendations[Either[AppError, UserRec]](userId, recommenderId, limit)
+    val resultEither = getRecommendations[Either[AppError, ?]](userId, recommenderId, limit)
 
-    printResults(userId, resultEither)
+    printResults[Either[AppError, ?]](userId, resultEither)
 
     val resultOption = getRecommendations[Option](userId, recommenderId, limit)
 
