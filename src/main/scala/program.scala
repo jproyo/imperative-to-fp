@@ -193,7 +193,7 @@ object AppImperative {
 
     import interpreter._
 
-    val resultEither = getRecommendations[Either](userId, recommenderId, limit)
+    val resultEither = getRecommendations[Either[AppError, UserRec]](userId, recommenderId, limit)
 
     printResults(userId, resultEither)
 
