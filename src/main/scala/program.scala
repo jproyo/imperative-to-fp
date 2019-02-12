@@ -207,7 +207,7 @@ object AppImperative {
 
 
   def printResults(userId: Option[Int], result: Option[Result]): Unit = {
-    result.fold(println(s"No recommendations found for userId $userId"))(algoRes => {
+    result.fold(println(s"No recommendations found. Unknown Error"))(algoRes => {
       println(s"\nRecommnedations for userId ${algoRes.recs.userId}...")
       println(s"Algorithm ${algoRes.algorithm.name}")
       println(s"Recs: ${algoRes.recs.recs}")
@@ -220,7 +220,24 @@ object AppImperative {
 object ToScalaFP extends App {
   import AppImperative._
 
-  program(Some(1), Some("algo2"), Some(5))
+  program(Some(1), Some("algo1"), None)
+  println("------------------------------\n")
+
+  program(Some(2), Some("algo2"), Some(5))
+  println("------------------------------\n")
+
+  program(Some(3), Some("algo5"), Some(15))
+  println("------------------------------\n")
+
+  program(Some(14), Some("algo2"), Some(15))
+  println("------------------------------\n")
+
+  program(None, Some("algo3"), Some(15))
+  println("------------------------------\n")
+
+  program(Some(1), Some("algo3"), Some(15))
+  println("------------------------------\n")
+
 }
 
 
