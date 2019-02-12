@@ -188,6 +188,16 @@ object interpreter {
     }
   }
 
+  implicit object ProgramEither extends Program[Either[AppError, ?]] {
+    override def flatMap[A, B](fa: Either[AppError, A], afb: A => Either[AppError, B]): Either[AppError, B] =
+      fa.flatMap(afb)
+
+    override def map[A, B](fa: Either[AppError, A], ab: A => B): Either[AppError, B] =
+      fa.map(ab)
+
+    override def fold[A, B, C](fa: Either[AppError, A], first: B => C, second: A => C): C =
+      fa.fold(first(_), second(_))
+  }
 
 
 }
