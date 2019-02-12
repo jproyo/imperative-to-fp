@@ -193,10 +193,13 @@ object AppImperative {
 
     import interpreter._
 
-    val result = getRecommendations[Option](userId, recommenderId, limit)
+    val resultEither = getRecommendations[Either](userId, recommenderId, limit)
 
-    printResults(userId, result)
+    printResults(userId, resultEither)
 
+    val resultOption = getRecommendations[Option](userId, recommenderId, limit)
+
+    printResults(userId, resultOption)
   }
 
   def getRecommendations[F[_]: UserRepo: AlgorithmRepo: Filter: Program](userId: Option[Int],
