@@ -161,6 +161,15 @@ object interpreter {
 
   }
 
+  implicit object UserRepoEither extends UserRepo[Either[AppError, ?]] {
+    override def getUser(userId: Option[Int]): Either[AppError, UserId] = {
+      for {
+        userParam <- userId.map(UserId).toRight(UserNotProvided)
+        userDb    <- users.find(_ == userParam).toRight(UserNotFound(userParam))
+      } yield userDb
+    }
+  }
+
 
 }
 
