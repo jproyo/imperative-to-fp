@@ -78,13 +78,17 @@ object algebras {
 
     def map[A, B](fa: F[A], ab: A => B): F[B]
 
+    def fold[A, B, C](fa: F[A], first: B => C, second: A => C): C
+
   }
   object Program {
-    def apply[F[_]](implicit F: Program[F]): Program[F] = F
+    def apply[F[_]](implicit Prog: Program[F]): Program[F] = Prog
   }
+
   implicit class ProgramSyntax[F[_], A](fa: F[A]) {
-    def map[B](f: A => B)(implicit F: Program[F]): F[B] = F.map(fa, f)
-    def flatMap[B](afb: A => F[B])(implicit F: Program[F]): F[B] = F.flatMap(fa, afb)
+    def map[B](f: A => B)(implicit Prog: Program[F]): F[B] = Prog.map(fa, f)
+    def flatMap[B](afb: A => F[B])(implicit Prog: Program[F]): F[B] = Prog.flatMap(fa, afb)
+    def fold[B, C](first: B => C, second: A => C)(implicit Prog: Program[F]): C = Prog.fold(fa, first, second)
   }
 
 
@@ -207,7 +211,7 @@ object AppImperative {
 
 
   def printResults[F[_]: Program](userId: Option[Int], result: F[Result]): Unit = {
-    result.fold(println(s"No recommendations found. Unknown Error"))(algoRes => {
+    result.fold[AppError, Unit](error => println(s"Error $error"), algoRes => {
       println(s"\nRecommnedations for userId ${algoRes.recs.userId}...")
       println(s"Algorithm ${algoRes.algorithm.name}")
       println(s"Recs: ${algoRes.recs.recs}")
