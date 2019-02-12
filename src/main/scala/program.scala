@@ -156,6 +156,9 @@ object interpreter {
 
     override def map[A, B](fa: Option[A], ab: A => B): Option[B] = fa.map(ab)
 
+    override def fold[A, B, C](fa: Option[A], first: B => C, second: A => C): C =
+      fa.fold(first(UnknownError.asInstanceOf[B]))(second(_))
+
   }
 
 
@@ -211,7 +214,7 @@ object AppImperative {
 
 
   def printResults[F[_]: Program](userId: Option[Int], result: F[Result]): Unit = {
-    result.fold[AppError, Unit](error => println(s"Error $error"), algoRes => {
+    result.fold[AppError, Unit](error => println(s"Error ${error.message}"), algoRes => {
       println(s"\nRecommnedations for userId ${algoRes.recs.userId}...")
       println(s"Algorithm ${algoRes.algorithm.name}")
       println(s"Recs: ${algoRes.recs.recs}")
