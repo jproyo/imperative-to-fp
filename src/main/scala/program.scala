@@ -182,6 +182,13 @@ object interpreter {
       algo.run(userId).toRight(RecommendationsNotFound(userId, algo.name))
   }
 
+  implicit object FilterEither extends Filter[Either[AppError, ?]] {
+    override def filter(userRec: UserRec, limit: Int): Either[AppError, UserRec] = {
+      Right(userRec.copy(recs = recs.slice(0, limit).toList))
+    }
+  }
+
+
 
 }
 
