@@ -206,7 +206,7 @@ object AppImperative {
   }
 
 
-  def printResults(userId: Option[Int], result: Option[Result]): Unit = {
+  def printResults[F[_]: Program](userId: Option[Int], result: F[Result]): Unit = {
     result.fold(println(s"No recommendations found. Unknown Error"))(algoRes => {
       println(s"\nRecommnedations for userId ${algoRes.recs.userId}...")
       println(s"Algorithm ${algoRes.algorithm.name}")
