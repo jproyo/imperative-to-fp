@@ -16,6 +16,9 @@ object DataSource {
   case object UserNotProvided extends AppError {
     override def message: String = s"User id must be provided"
   }
+  case class AlgorithmNotFound(recId: String) extends AppError {
+    override def message: String = s"Algorithm not found for id $recId"
+  }
   case class RecommendationsNotFound(userId: UserId, algo: String) extends AppError {
     override def message: String = s"Recommendations not found for $userId with algorithm '$algo'"
   }
@@ -168,6 +171,15 @@ object interpreter {
         userDb    <- users.find(_ == userParam).toRight(UserNotFound(userParam))
       } yield userDb
     }
+  }
+
+  implicit object AlgorithmRepoEither extends AlgorithmRepo[Either[AppError, ?]]{
+    override def getAlgorithm(recommenderId: Option[String]): Either[AppError, Algorithm] =
+      recommenderId.orElse(algoDefault).flatMap(algorithms.get(_))
+        .toRight(AlgorithmNotFound(recommenderId.getOrElse(algoDefault.get)))
+
+    override def execute(algo: Algorithm, userId: UserId): Either[AppError, UserRec] =
+      algo.run(userId).toRight(RecommendationsNotFound(userId, algo.name))
   }
 
 
